@@ -1,0 +1,845 @@
+<template>
+    <div>
+		<div class="i-layout-page-header">
+		  <PageHeader class="product_tabs" hidden-breadcrumb>
+		    <div slot="title" class="acea-row row-middle">
+		      <router-link :to="{ path: `${routerPre}/store/store/index` }">
+		        <div class="font-sm after-line">
+		          <span class="iconfont iconfanhui"></span>
+		          <span class="pl10">返回</span>
+		        </div>
+		      </router-link>
+		      <span v-text="$route.params.id ? '编辑门店' : '添加门店'" class="mr20 ml16"></span>
+		    </div>
+		  </PageHeader>
+		</div>
+		<div class="article-manager ivu-mt">
+		    <Card :bordered="false" dis-hover :padding="16">
+				<div class="new_tab">
+					<Tabs v-model="currentTab">
+						<TabPane :label="'基础设置'" name="1" />
+						<TabPane :label="'运营设置'" name="2" />
+						<TabPane :label="'配送设置'" name="3" />
+						<TabPane :label="'商品设置'" name="4" v-if="!formItem.id" />
+					</Tabs>
+				</div>
+		        <Form ref="formItem" class="mt20" :model="formItem" :label-width="labelWidth" :label-position="labelPosition" :rules="ruleValidate" @submit.native.prevent>
+		            <Row type="flex" :gutter="24" v-show="currentTab == 1">
+						<Col span="24" v-if="openErp">
+							<FormItem label="erp门店：" prop="erp_shop_id">
+								<Button @click="tapErp">{{formItem.erp_shop_id?formItem.erp_shop_id:"请选择erp门店"}}</Button>
+							</FormItem>
+						</Col>
+						<Col span="24">
+						    <FormItem label="门店照片：" prop="image">
+								<div class="picBox" @click="modalPicTap('单选', 'image')">
+									<div class="pictrue" v-if="formItem.image"><img v-lazy="formItem.image"></div>
+									<div class="upLoad" v-else>
+										<div class="iconfont">+</div>
+									</div>
+								</div>
+								<div class="tips"> 建议尺寸：70 * 70px</div>
+						    </FormItem>
+						</Col>
+		                <Col span="24">
+							<FormItem label="门头照片：" prop="background_image">
+								<div class="picBox" @click="modalPicTap('单选', 'background_image')">
+									<div class="pictrue" v-if="formItem.background_image"><img v-lazy="formItem.background_image"></div>
+									<div class="upLoad" v-else>
+										<div class="iconfont">+</div>
+									</div>
+								</div>
+								<div class="tips"> 建议尺寸：375 * 192px</div>
+							</FormItem>
+						</Col>
+						<Col span="24">
+						    <FormItem label="门店名称：" prop="name" label-for="name">
+						        <Input v-model="formItem.name"  maxlength="100" show-word-limit  placeholder="请输入门店名称" class="inputW"/>
+						    </FormItem>
+						</Col>
+						<Col span="24">
+							<FormItem label="门店简介：" label-for="introduction">
+								<Input v-model="formItem.introduction"  maxlength="1000" show-word-limit :rows="4" :autosize="{maxRows:4,minRows: 4}" type="textarea" placeholder="请输入门店简介" class="inputW"/>
+							</FormItem>
+						</Col>
+						<Col span="24">
+							<FormItem label="门店分类：" prop="cate_id" label-for="cate_id">
+							  <Cascader
+							      :data="treeSelect"
+							      placeholder="请选择门店分类"
+							      change-on-select
+							      v-model="formItem.cate_id"
+							      filterable
+								  class="inputW"
+							  ></Cascader>
+							</FormItem>
+						</Col>
+						<Col span="24">
+							<FormItem label="门店区域：" prop="region_id" label-for="region_id">
+							  <Select v-model="formItem.region_id" placeholder="请选择" clearable class="inputW">
+								<Option v-for="item in regionList"
+								:value="item.id"
+								:key="item.id">
+								{{ item.name }}
+								</Option>
+							  </Select>
+							</FormItem>
+						</Col>
+
+						<Col span="24">
+							<FormItem label="营业状态：" label-for="is_show" prop="is_show">
+								<Switch size="large" v-model="formItem.is_show" :false-value="0" :true-value="1">
+									<span slot="open" :true-value="1">开启</span>
+									<span slot="close" :false-value="0">关闭</span>
+								</Switch>
+							</FormItem>
+						</Col>
+                  <Col span="24">
+                    <FormItem label="业务员id：" label-for="business_id"  prop="business_id">
+                      <Input v-model="formItem.business_id"  placeholder="请输入业务员id" class="inputW"/>
+                   </FormItem>
+                  </Col>
+                  <Col span="24">
+                    <FormItem label="核销费率：" label-for="writeoffrate"  prop="writeoffrate">
+                      <InputNumber :min="0.01" :max="100000000" v-model="formItem.writeoffrate" placeholder="请输入核销费率"  style="width: 200px;"></InputNumber>
+                    </FormItem>
+                  </Col>
+						<Col span="24">
+							<FormItem label="营业时间：" label-for="day_time"  prop="day_time">
+								<TimePicker type="timerange" @on-change="onchangeTime" v-model="formItem.day_time"  format="HH:mm:ss" :value="formItem.day_time" placement="bottom-end" placeholder="请选择营业时间" class="inputW" ></TimePicker>
+							</FormItem>
+						</Col>
+						<Col span="24" v-if="formItem.id == 0">
+						    <FormItem label="管理员账号：" prop="store_account" label-for="store_account">
+						        <Input v-model="formItem.store_account"  placeholder="请输入管理员账号" class="inputW"/>
+						    </FormItem>
+						</Col>
+						<Col span="24"  v-if="formItem.id == 0">
+						    <FormItem label="管理员密码：" prop="store_password" label-for="store_password">
+						        <Input type="password" v-model="formItem.store_password"  placeholder="请输入管理员密码" class="inputW"/>
+						    </FormItem>
+						</Col>
+		                <Col span="24">
+		                    <FormItem label="门店手机号：" label-for="phone" prop="phone">
+		                        <Input v-model="formItem.phone"  placeholder="请输入门店手机号" class="inputW"/>
+		                    </FormItem>
+		                </Col>
+
+						<Col span="24">
+							<FormItem label="门店地址：" label-for="address" prop="address">
+								<Cascader :data="addresData" :load-data="loadData" v-model="formItem.addressSelect" @on-change="addchack" class="inputW"></Cascader>
+							</FormItem>
+						</Col>
+                  <Col span="24">
+                    <FormItem label="门店精度：" label-for="longitude"  prop="longitude">
+                      <Input v-model="formItem.longitude"  placeholder="请输入门店精度" class="inputW"/>
+                    </FormItem>
+                  </Col>
+                  <Col span="24">
+                    <FormItem label="门店纬度：" label-for="latitude"  prop="latitude">
+                      <Input v-model="formItem.latitude"  placeholder="请输入门店纬度" class="inputW"/>
+                    </FormItem>
+                  </Col>
+						<Col span="24">
+							<FormItem label="门店详细地址：" label-for="detailed_address" prop="detailed_address">
+								<div class="acea-row row-middle">
+									<Input v-if="storeAddress" disabled v-model="storeAddress" class="w-240"/>
+									<Input search enter-button="查找位置" v-model="formItem.detailed_address"  placeholder="输入详细地址" class="w-300 ml-6" @on-search="onSearch" />
+								</div>
+								<div class="tip">提示：为减少误差，建议门店地址与定位地区保持一致</div>
+							</FormItem>
+						</Col>
+						<Col span="24" v-if="isApi">
+							<Maps v-if="mapKey" ref="mapChild" class="map-sty" :mapKey="mapKey" :mapType="mapType"  :lat="Number(formItem.latitude || 28.6139)" :lon="Number(formItem.longitude ||  77.2090)"
+                    :address="formItem.detailed_address"
+                    @getCoordinates="getCoordinates" />
+						</Col>
+		            </Row>
+					<Row type="flex" :gutter="24" v-show="currentTab == 2">
+						<Col span="24">
+						  <FormItem label="门店类型：" label-for="type" prop="type">
+						    <RadioGroup v-model="formItem.type">
+						      <Radio :label="1">
+						        <Icon type="social-apple"></Icon>
+						        <span>自营</span>
+						      </Radio>
+						      <Radio :label="2">
+						        <Icon type="social-android"></Icon>
+						        <span>加盟</span>
+						      </Radio>
+						    </RadioGroup>
+						    <div class="tips">自营店不支持自主上传商品，加盟店有自主上传商品的权限</div>
+						  </FormItem>
+						</Col>
+						<Col span="24" v-if="formItem.type==2">
+							<FormItem label="商品免审：" label-for="product_verify_status" prop="product_verify_status">
+								<Switch size="large" v-model="formItem.product_verify_status" :false-value="0" :true-value="1">
+									<span slot="open" :true-value="1">开启</span>
+									<span slot="close" :false-value="0">关闭</span>
+								</Switch>
+							</FormItem>
+						</Col>
+						<Col span="24" v-if="formItem.type==2">
+						  <FormItem label="自主添加商品：" label-for="product_status" prop="product_status">
+						    <Switch size="large" v-model="formItem.product_status" :false-value="0" :true-value="1">
+						      <span slot="open" :true-value="1">开启</span>
+						      <span slot="close" :false-value="0">关闭</span>
+						    </Switch>
+						  </FormItem>
+						</Col>
+						<Col span="24" v-if="formItem.type==2">
+						  <FormItem label="使用平台余额：" label-for="use_system_money" prop="use_system_money">
+						    <Switch size="large" v-model="formItem.use_system_money" :false-value="0" :true-value="1">
+						      <span slot="open" :true-value="1">开启</span>
+						      <span slot="close" :false-value="0">关闭</span>
+						    </Switch>
+						  </FormItem>
+						</Col>
+						<Col span="24">
+						  <FormItem label="门店隔离：" label-for="is_alone" prop="is_alone">
+						    <Switch size="large" v-model="formItem.is_alone" :false-value="0" :true-value="1">
+						      <span slot="open" :true-value="1">开启</span>
+						      <span slot="close" :false-value="0">关闭</span>
+						    </Switch>
+						  </FormItem>
+						</Col>
+						<Col span="24">
+						  <FormItem label="自建商品分类：" label-for="product_category_status" prop="product_category_status">
+						    <Switch size="large" v-model="formItem.product_category_status" :false-value="0" :true-value="1">
+						      <span slot="open" :true-value="1">开启</span>
+						      <span slot="close" :false-value="0">关闭</span>
+						    </Switch>
+                <div class="tips">开启后，门店可自建商品分类并为门店商品设置门店分类</div>
+						  </FormItem>
+						</Col>
+					</Row>
+					<Row type="flex" :gutter="24" v-show="currentTab == 3">
+						<Col span="24">
+							<FormItem label="配送方式：" label-for="delivery_type" prop="delivery_type">
+								<RadioGroup v-model="formItem.delivery_type">
+									<Radio :label="1">门店配送+到店核销</Radio>
+									<Radio :label="2">门店配送</Radio>
+									<Radio :label="3">到店核销</Radio>
+								</RadioGroup>
+								<div class="tips">门店支持的配送方式</div>
+							</FormItem>
+						</Col>
+						<Col span="24" v-if="formItem.delivery_type !=3">
+							<FormItem required label="配送范围(半径)：" required label-for="valid_range" prop="valid_range">
+								<InputNumber :min="0.01" :max="100000000" v-model="formItem.valid_range" :formatter="value => `${formItem.valid_range}`" :parser="value => value.replace('%', '')" style="width: 90px;"></InputNumber><span class="ml10">km</span>
+							</FormItem>
+						</Col>
+						<Col span="24" v-if="formItem.delivery_type !=3">
+							<FormItem label="同城配送：" label-for="city_delivery_status" prop="city_delivery_status">
+								<Switch size="large" v-model="formItem.city_delivery_status" :false-value="0" :true-value="1">
+									<span slot="open" :true-value="1">开启</span>
+									<span slot="close" :false-value="0">关闭</span>
+								</Switch>
+							</FormItem>
+						</Col>
+						<Col span="24" v-if="formItem.city_delivery_status && formItem.delivery_type !=3">
+							<FormItem label="第三方配送：" label-for="city_delivery_type" prop="city_delivery_type">
+								<RadioGroup v-model="formItem.city_delivery_type">
+									<Radio :label="1">达达快送</Radio>
+									<Radio :label="2">UU跑腿</Radio>
+									<Radio :label="0">均不使用</Radio>
+								</RadioGroup>
+							</FormItem>
+						</Col>
+						<Col span="24">
+							<FormItem label="默认配送方式：">
+								<RadioGroup v-model="formItem.default_delivery">
+								  <Radio :label="1">配送</Radio>
+								  <Radio :label="2">到店</Radio>
+								</RadioGroup>
+								<div class="tips">用户进入门店时默认选择的配送方式</div>
+							</FormItem>
+						</Col>
+					</Row>
+					<Row type="flex" :gutter="24" v-show="currentTab == 4">
+						<Col span="24" v-if="!formItem.id">
+						  <FormItem label="同步商品：">
+						    <RadioGroup v-model="formItem.applicable_type">
+						      <Radio :label="1">
+						        <Icon type="social-apple"></Icon>
+						        <span>全部商品</span>
+						      </Radio>
+						      <Radio :label="2">
+						        <Icon type="social-android"></Icon>
+						        <span>指定商品</span>
+						      </Radio>
+							  <Radio :label="3">
+							    <Icon type="social-android"></Icon>
+							    <span>暂不同步</span>
+							  </Radio>
+						    </RadioGroup>
+						  </FormItem>
+						</Col>
+						<Col span="24" v-if="!formItem.id && formItem.applicable_type == 2" >
+						  <FormItem label="选择商品：" label-for="product_id" prop="">
+							<div class="box">
+							  <div class="box-item" v-for="(item,index) in goodsList" :key="index">
+								<img :src="item.image" alt="">
+								<Icon class="icon" type="ios-close-circle" size="20" @click="bindDelete(index)" />
+							  </div>
+							  <div class="upload-box" @click="modals = true"><Icon type="ios-camera-outline" size="36" /></div>
+							</div>
+						  </FormItem>
+						</Col>
+					</Row>
+		            <Spin size="large" fix v-if="spinShow"></Spin>
+		        </Form>
+		    </Card>
+			<Card :bordered="false" dis-hover class="fixed-card" :style="{left: `${!menuCollapse?'236px':isMobile?'0':'60px'}`}">
+			  <Form>
+			    <FormItem>
+			      <Button v-if="currentTab !== '1'" @click="upTab">上一步</Button>
+			      <Button
+			          type="primary"
+			          class="ml10"
+			          v-if="($route.params.id && Number(currentTab) < 3) || (!$route.params.id && Number(currentTab) < 4)"
+			          @click="downTab('formItem')"
+			      >下一步</Button
+			      >
+			      <Button
+			          type="primary"
+			          class="ml10"
+			          @click="handleSubmit('formItem')"
+			          v-if="$route.params.id || (!$route.params.id && currentTab == 4)"
+			      >保存</Button
+			      >
+			    </FormItem>
+			  </Form>
+			</Card>
+		    <Modal v-model="modalPic" width="960px" scrollable  footer-hide closable :title='picTit == "image"?"上传门店照片":"上传门头照片"' :mask-closable="false" :z-index="1">
+		        <uploadPictures :isChoice="isChoice" @getPic="getPic" :gridBtn="gridBtn" :gridPic="gridPic" v-if="modalPic"></uploadPictures>
+		    </Modal>
+			<Modal v-model="modalErp" width="700px" scrollable  footer-hide closable title='erp门店' :mask-closable="false" :z-index="1">
+				<erpList ref="refErp" @getProductId="getProductId"></erpList>
+			</Modal>
+		</div>
+        <Modal v-model="modals" title="商品列表"  class="paymentFooter" scrollable width="900" :footer-hide="true">
+          <goods-list ref="goodslist"  @getProductId="getGoodsId" v-if="modals" :ischeckbox="true" :isLive="true" :storeType="1"></goods-list>
+        </Modal>
+    </div>
+</template>
+
+<script>
+    import goodsList from '@/components/goodsList'
+	import { keyApi, storeGetInfoApi, cityApi, storeUpdateApi, cascaderList, getAllRegion, getResolveCity } from '@/api/store';
+	import { erpConfig } from "@/api/erp";
+	import { mapState } from 'vuex';
+	import uploadPictures from '@/components/uploadPictures';
+	import erpList from '../components/erpList.vue';
+	import Maps from '@/components/map/map.vue'
+	import Setting from "@/setting";
+	export default {
+		name: 'systemStore',
+		components: { uploadPictures,Maps,erpList,goodsList },
+		props: { },
+		data () {
+			let validatePhone = (rule, value, callback) => {
+				if (!value) {
+					return callback(new Error('请填写手机号'));
+				} else if (!/^[9|8|7|6]\d{9}$/.test(value)) {
+					//callback(new Error('手机号格式不正确!'));
+				} else {
+					callback();
+				}
+			};
+			let validateUpload = (rule, value, callback) => {
+				if (!this.formItem.image) {
+					callback(new Error('请上传门店照片'))
+				} else {
+					callback()
+				}
+			};
+			const validateImgUpload = (rule, value, callback) => {
+				if (!this.formItem.background_image) {
+					callback(new Error('请上传门头照片'))
+				} else {
+					callback()
+				}
+			};
+			let validateErp = (rule, value, callback) => {
+				if (this.formItem.erp_shop_id == 0) {
+					callback(new Error('请选择erp门店'))
+				} else {
+					callback()
+				}
+			};
+			return {
+        mapType:'google',
+				currentTab:'1',
+				routerPre: Setting.roterPre,
+				goodsList:[],
+				modals:false,
+				treeSelect:[],
+				modalErp:false,
+				openErp:false,
+				formItem: {
+          writeoffrate:0,
+					city_delivery_status:1,
+					city_delivery_type:0,
+					default_delivery: 1,
+					use_system_money:1,
+					is_alone:0,
+					product_category_status:0,
+					delivery_type: 1,
+					product_id:[],
+					cate_id:[],
+					region_id:0,
+					id: 0,
+					erp_shop_id: 0,
+					store_account: '',
+					store_password: '',
+					image: '',
+					background_image:'',
+					name: '',
+					introduction: '',
+					phone: '',
+					is_show: 1,
+					day_time: [],
+					address: '',
+					detailed_address: '',
+					latitude:'',
+					longitude:'',
+					addressSelect:[],
+					valid_range:0,
+					product_verify_status:0,
+					product_status:1,
+					type:1,
+					applicable_type:1
+				},
+				spinShow: false,
+				addresData: [],
+				ruleValidate: {
+					name: [
+						{ required: true, message: '请输入门店名称', trigger: 'blur' }
+					],
+					erp_shop_id: [
+						{ required: true, validator: validateErp, trigger: 'change' }
+					],
+					store_account: [
+						{ required: true, message: '请输入管理员账号', trigger: 'blur' }
+					],
+					store_password: [
+						{ required: true, message: '请输入管理员密码', trigger: 'blur' }
+					],
+					address: [
+						{ required: true, message: '请选择门店地址', trigger: 'change' }
+					],
+					// phone: [
+					// 	{ required: true, validator: validatePhone, trigger: 'blur' }
+					// ],
+					detailed_address: [
+						{ required: true, message: '请输入详细地址', trigger: 'blur' }
+					],
+					image: [
+						{ required: true, validator: validateUpload, trigger: 'change' }
+					],
+                    background_image: [
+						{ required: true, validator: validateImgUpload, trigger: 'change' }
+					],
+					day_time: [
+						{required: true,type: "array", message: "请选择营业时间",trigger: "change"},
+						{validator(rule, value, callback, source, options)
+							{
+								if (value[0] === "") {
+								callback("请选择营业时间");
+								}
+							 callback();//这个一定要有。不然无法验证通过
+							}
+						}
+					],//TimePicker-timerange，自定义的
+				},
+				mapKey: '',
+				grid: {
+					xl: 20,
+					lg: 20,
+					md: 20,
+					sm: 24,
+					xs: 24
+				},
+				gridPic: {
+					xl: 6,
+					lg: 8,
+					md: 12,
+					sm: 12,
+					xs: 12
+				},
+				gridBtn: {
+					xl: 4,
+					lg: 8,
+					md: 8,
+					sm: 8,
+					xs: 8
+				},
+				modalPic: false,
+				isChoice: '单选',
+				pid:0,
+				isApi:0,
+				storeAddress:'',
+				regionList:[],
+				picTit:''
+			}
+		},
+		created () {
+			this.allRegion();
+            this.goodsCategory();
+			this.getErpConfig();
+			this.getKey();
+			let data = {pid:0}
+			this.cityInfo(data);
+			let id = this.$route.params.id;
+			if(id){
+				this.getInfo(id);
+			}else{
+				this.isApi = 1;
+			}
+		},
+		computed: {
+			...mapState("admin/layout", ["isMobile","menuCollapse"]),
+			labelWidth () {
+				return this.isMobile ? undefined : 120;
+			},
+			labelPosition () {
+				return this.isMobile ? 'top' : 'right';
+			}
+		},
+		mounted: function () {},
+		methods: {
+			// 区域列表
+			allRegion(){
+				let data = {
+					is_show:1
+				}
+				getAllRegion(data).then(res=>{
+					this.regionList = res.data;
+				}).catch(err=>{
+					this.$Message.error(err.msg);
+				})
+			},
+		    //对象数组去重；
+		    unique(arr) {
+			  const res = new Map();
+			  return arr.filter((arr) => !res.has(arr.product_id) && res.set(arr.product_id, 1))
+		    },
+		    getGoodsId (data) {
+			  let list = this.goodsList.concat(data);
+			  let uni = this.unique(list);
+			  this.goodsList = uni;
+			  this.$nextTick(res=>{
+			    setTimeout(()=>{
+				  this.modals = false
+			    },300)
+			  })
+		    },
+		    bindDelete (index) {
+			  this.goodsList.splice(index, 1)
+		    },
+		    // 门店分类；
+		    goodsCategory () {
+			  cascaderList(1).then(res => {
+			    this.treeSelect = res.data;
+			  }).catch(res => {
+			    this.$Message.error(res.msg);
+			  })
+		    },
+			getProductId(id){
+				this.formItem.erp_shop_id = id;
+				this.modalErp = false;
+				this.$refs.formItem.validateField("erp_shop_id");
+			},
+			tapErp(){
+				this.$refs.refErp.currentid = this.formItem.erp_shop_id;
+				this.modalErp = true;
+				this.$refs.formItem.validateField("erp_shop_id");
+			},
+			getErpConfig(){
+				erpConfig().then(res=>{
+					this.openErp = res.data.open_erp;
+				}).catch(err=>{
+					this.$Message.error(err.msg);
+				})
+			},
+			addchack(e,selectedData){
+				this.formItem.addressSelect = e;
+				this.formItem.address = (selectedData.map(o => o.label)).join(" ");
+				this.storeAddress = (selectedData.map(o => o.label)).join(" ");
+			},
+			cityInfo(data){
+				cityApi(data).then(res=>{
+					this.addresData = res.data
+				})
+			},
+			loadData(item, callback) {
+				item.loading = true;
+				cityApi({pid:item.value}).then(res=>{
+					item.children = res.data;
+					item.loading = false;
+					callback();
+				});
+			},
+			resolveCity(address){
+				let data = {
+					address:address
+				}
+				getResolveCity(data).then(res=>{
+					let array = []
+					res.data.forEach(item=>{
+						array.push(item.id)
+					})
+					this.formItem.addressSelect = array
+				}).catch(err=>{
+					this.$Message.error(res.msg)
+				})
+			},
+			// 地图信息获取
+			getCoordinates(data) {
+
+				this.formItem.latitude = data.lat || 28.6139
+				this.formItem.longitude = data.lng || 77.2090
+
+				if(data.address_reference){
+					let landmark = data.address_reference.landmark_l2;
+					this.formItem.detailed_address = landmark.title;
+					this.formItem.latitude = landmark.location.lat || 28.6139;
+					this.formItem.longitude = landmark.location.lng || 77.2090;
+					let component = data.address_component;
+					let town = data.address_reference.town.title;
+					town = town == '新德里'?'新德里':town;
+					let address = [component.province,component.city,component.district,town];
+					this.storeAddress = address.join(' ');
+					this.formItem.address = address.join(' ');
+					this.resolveCity(address.join('/'));
+				}
+			},
+			// 查找位置
+			onSearch() {
+				if(this.$refs.mapChild){
+
+					this.$refs.mapChild.searchKeyword(this.formItem.detailed_address)
+				}
+			},
+			// key值
+			getKey () {
+				keyApi().then(res => {
+					this.mapKey = res.data.key
+				}).catch(res => {
+					this.$Message.error(res.msg)
+				})
+			},
+			// 详情
+			getInfo (id) {
+			    let that = this;
+			    that.formItem.id = id;
+			    that.spinShow = true;
+			    storeGetInfoApi(id).then(res => {
+					this.isApi = 1;
+					this.formItem = res.data.info;
+					this.storeAddress = res.data.info.address;
+					this.formItem.erp_shop_id = res.data.info.erp_shop_id || 0;
+					this.formItem.day_time = res.data.info.timeVal;
+					this.$set(this.formItem,'valid_range',(this.formItem.valid_range)/1000)
+					that.spinShow = false;
+				}).catch(function (res) {
+					that.spinShow = false;
+					that.$Message.error(res.msg);
+				})
+			},
+			// 选择图片
+			modalPicTap (tit, picTit) {
+				this.modalPic = true;
+				this.picTit = picTit || "";
+				this.$refs.formItem.validateField(picTit)
+			},
+			// 选中图片
+			getPic (pc) {
+				this.formItem[this.picTit] = pc.att_dir;
+				this.modalPic = false;
+				this.$refs.formItem.validateField(this.picTit)
+			},
+			// 营业时间
+			onchangeTime (e) {
+				this.formItem.day_time = e;
+			},
+			// 上一页；
+			upTab() {
+				this.currentTab = (Number(this.currentTab) - 1).toString();
+			},
+			// 下一页；
+			downTab(name) {
+			  this.$refs[name].validate((valid) => {
+			    if (valid) {
+				  if(this.currentTab==3 && this.formItem.delivery_type != 3){
+					  if(this.formItem.valid_range == '' || this.formItem.valid_range<0){
+					  	return this.$Message.error('请输入有效的门店范围');
+					  }
+				  }
+			      this.currentTab = (Number(this.currentTab) + 1).toString();
+			    }else{
+			      this.$Message.warning("请完善数据");
+			    }
+			  })
+			},
+			// 提交
+			handleSubmit (name) {
+				this.$refs[name].validate((valid) => {
+					if (valid) {
+						if(this.formItem.day_time[0] == ''){
+							this.formItem.day_time = ['00:00:00', '23:59:59']
+						}
+						if((this.formItem.valid_range == ''||this.formItem.valid_range<0) && this.formItem.delivery_type != 3){
+							return this.$Message.error('请输入有效的门店范围');
+						}
+						let product_id = []
+						this.goodsList.forEach(item=>{
+						  product_id.push(item.product_id)
+						})
+						this.formItem.product_id = product_id;
+            console.log(this.formItem);
+						storeUpdateApi(this.formItem.id,this.formItem).then(async res => {
+							this.$Message.success(res.msg);
+							this.$router.push({ path: this.routerPre + "/store/store/index" });
+						}).catch(res => {
+							this.$Message.error(res.msg);
+						})
+					} else {
+						return false;
+					}
+				})
+
+			}
+		}
+	}
+</script>
+
+<style scoped lang="stylus">
+.tip{
+	color: #ed4014;
+}
+.fixed-card {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 200px;
+    z-index: 25;
+    box-shadow: 0 -1px 2px rgb(240, 240, 240);
+
+    /deep/ .ivu-card-body {
+      padding: 15px 16px 14px;
+    }
+
+    .ivu-form-item {
+      margin-bottom: 0;
+    }
+
+    /deep/ .ivu-form-item-content {
+      margin-right: 124px;
+      text-align: center;
+    }
+
+    .ivu-btn {
+      height: 36px;
+      padding: 0 20px;
+    }
+}
+/deep/.ivu-col-span-xs-24{
+	max-width: 100% !important
+}
+.new_tab {
+  /deep/.ivu-tabs-nav .ivu-tabs-tab{
+    padding:4px 16px 20px !important;
+    font-weight: 500;
+  }
+}
+.tips {
+  display: inline-bolck;
+  font-size: 12px;
+  font-weight: 400;
+  color: #999;
+}
+.box{
+  display: flex
+  flex-wrap: wrap
+  .box-item{
+    position: relative
+    margin-right: 20px
+    width: 60px
+    height: 60px
+    margin-bottom: 10px
+
+    img {
+      width: 100%
+      height: 100%
+    }
+    .icon{
+      position: absolute;
+      top:-10px;
+      right: -10px;
+    }
+  }
+  .upload-box{
+    width: 60px
+    height: 60px
+    margin-bottom: 10px
+    display: flex
+    align-items: center
+    justify-content: center
+    background: #ccc
+  }
+}
+	.map-sty {
+		width: 90%;
+		text-align: right;
+		margin: 0 0 0 10%;
+	}
+	.footer{
+		width: 100%;
+		height: 50px;
+		box-shadow: 0px -2px 4px 0px rgba(0, 0, 0, 0.05);
+		margin-top: 50px;
+	}
+.btn /deep/.ivu-btn-primary{
+		width: 86px;
+	}
+	.btn{
+		margin-top: 20px;
+	}
+	.inputW{
+		width: 400px;
+	}
+	.ivu-mt{
+		min-width: 580px;
+		margin-bottom: 45px;
+	}
+	.picBox{
+		display: inline-block;
+		cursor: pointer;
+		.upLoad{
+			width: 58px;
+			height: 58px;
+			line-height: 58px;
+			border: 1px dotted rgba(0, 0, 0, 0.1);
+			border-radius: 4px;
+			background: rgba(0, 0, 0, 0.02);
+		}
+		.pictrue{
+			width: 60px;
+			height: 60px;
+			border: 1px dotted rgba(0, 0, 0, 0.1);
+			margin-right: 10px;
+			img {
+				width: 100%;
+				height: 100%;
+			}
+		}
+		.iconfont{
+			color: #CCCCCC;
+			font-size: 26px;
+			text-align: center
+		}
+	}
+
+</style>
