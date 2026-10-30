@@ -15,6 +15,7 @@
     <Card :bordered="false" dis-hover class="ivu-mt">
       <!-- 相关操作 -->
       <Button v-auth="['admin-user-level_add']" type="primary" @click="add">添加</Button>
+      <Button v-if="isSuperAdmin" class="ivu-ml-8" icon="ios-card" @click="configure()">支付参数配置</Button>
       <!-- 基金列表表格 -->
       <Table :columns="columns" :data="channelList" ref="table" class="mt25"
              :loading="loading" highlight-row
@@ -26,7 +27,23 @@
             <span slot="close">关闭</span>
           </i-switch>
         </template>
+        <template slot-scope="{ row }" slot="recharge_status">
+          <i-switch v-model="row.recharge_status" :true-value="1" :false-value="0" @on-change="onchangeUsageStatus(row, 'recharge_status')" size="large">
+            <span slot="open">开启</span>
+            <span slot="close">关闭</span>
+          </i-switch>
+        </template>
+        <template slot-scope="{ row }" slot="payout_status">
+          <i-switch v-model="row.payout_status" :true-value="1" :false-value="0" @on-change="onchangeUsageStatus(row, 'payout_status')" size="large">
+            <span slot="open">开启</span>
+            <span slot="close">关闭</span>
+          </i-switch>
+        </template>
         <template slot-scope="{ row, index }" slot="action">
+          <template v-if="isConfigurable(row)">
+            <a @click="configure(row)">参数配置</a>
+            <Divider type="vertical" />
+          </template>
           <a @click="edit(row)">编辑</a>
           <Divider type="vertical" />
           <a @click="del(row)">删除</a>
@@ -60,6 +77,22 @@
             <span slot="close" :false-value="0">关闭</span>
           </Switch>
         </FormItem>
+        <FormItem label="充值启用：" prop="recharge_status">
+          <i-switch size="large" v-model="formItem.recharge_status" :false-value="0" :true-value="1">
+            <span slot="open">开启</span>
+            <span slot="close">关闭</span>
+          </i-switch>
+        </FormItem>
+        <FormItem label="代付启用：" prop="payout_status">
+          <i-switch size="large" v-model="formItem.payout_status" :false-value="0" :true-value="1">
+            <span slot="open">开启</span>
+            <span slot="close">关闭</span>
+          </i-switch>
+        </FormItem>
+        <FormItem label="链接有效期：" prop="link_expire_minutes">
+          <InputNumber v-model="formItem.link_expire_minutes" :min="1" :step="1" style="width: 300px;"></InputNumber>
+          <span class="ivu-ml-8">分钟</span>
+        </FormItem>
         <FormItem label="排序：" label-for="value"  prop="value">
           <input-number v-model="formItem.sort" :min="1" :step="1" placeholder="请输入排序值约大越靠前"  style="width: 300px;"></input-number>
         </FormItem>
@@ -77,6 +110,7 @@
 </template>
 <script>
 import { mapState, mapMutations } from 'vuex';
+import util from '@/libs/util';
 import {levelListApi, setShowApi, createApi, userMemberShip, updateTaskApi} from '@/api/user';
 import editFrom from '@/components/from/from';
 import {
@@ -87,7 +121,20 @@ import {
   setStatusApi,
   userDepositApi
 } from "@api/deposit";
-import {channelStatusApi, listApi, saveApi, updateApi} from "@api/paychannel";
+import {channelStatusApi, configProvidersApi, listApi, saveApi, updateApi} from "@api/paychannel";
+
+const defaultChannelForm = () => ({
+  id: 0,
+  title: '',
+  name: '',
+  value: '',
+  status: 0,
+  recharge_status: 1,
+  payout_status: 1,
+  link_expire_minutes: 15,
+  sort: 1
+});
+
 export default {
   name: 'pay_channel',
   components: { editFrom },
@@ -123,6 +170,16 @@ export default {
           minWidth: 120
         },
         {
+          title: '充值启用',
+          slot: 'recharge_status',
+          minWidth: 120
+        },
+        {
+          title: '代付启用',
+          slot: 'payout_status',
+          minWidth: 120
+        },
+        {
           title: '排序',
           key: 'sort',
           minWidth: 120
@@ -131,7 +188,7 @@ export default {
           title: '操作',
           slot: 'action',
           fixed: 'right',
-          width: 200
+          width: 260
         }
       ],
       channelFrom: {
@@ -143,14 +200,7 @@ export default {
 
       rowModelType: "新增",
       member_vips:[],
-      formItem:{
-        id:0,
-        title:'',
-        name:'',
-        value:'',
-        status:0,
-        sort:1
-      },
+      formItem: defaultChannelForm(),
       channelList: [],
       total: 0,
       userTotal:0,
@@ -161,15 +211,26 @@ export default {
       modelTask: false,
       num: 0,
       isShow:false,
+      configurableChannels: []
     }
   },
   created () {
     this.getList();
+    if (this.isSuperAdmin) this.getConfigProviders();
   },
   computed: {
     ...mapState('admin/layout', [
       'isMobile'
     ]),
+    ...mapState('admin/user', {
+      currentAdmin: 'info'
+    }),
+    isSuperAdmin () {
+      if (this.currentAdmin && this.currentAdmin.level !== undefined) {
+        return Number(this.currentAdmin.level) === 0;
+      }
+      return Number((this.currentAdmin && this.currentAdmin.id) || util.cookies.get('uuid')) === 1;
+    },
     labelWidth () {
       return this.isMobile ? undefined : 96;
     },
@@ -178,6 +239,30 @@ export default {
     }
   },
   methods: {
+    getConfigProviders () {
+      configProvidersApi().then(res => {
+        this.configurableChannels = res.data.map(item => item.value);
+      }).catch(() => {
+        this.configurableChannels = [];
+      });
+    },
+    isConfigurable (row) {
+      return this.isSuperAdmin && this.configurableChannels.indexOf(String(row.value || '').toLowerCase()) !== -1;
+    },
+    configure (row) {
+      this.$router.push({
+        name: 'setting_payment_channels',
+        query: row && row.value ? { provider: String(row.value).toLowerCase() } : {}
+      });
+    },
+    onchangeUsageStatus (row, field) {
+      updateApi(row.id, row).then(res => {
+        this.$Message.success(res.msg);
+      }).catch(res => {
+        row[field] = row[field] ? 0 : 1;
+        this.$Message.error(res.msg);
+      });
+    },
 
     save(){
       if(this.formItem.id){
@@ -255,13 +340,13 @@ export default {
     add () {
       this.rowModelType= "新增";
       this.isShow = true;
-      this.formItem={};
+      this.formItem = defaultChannelForm();
     },
     // 编辑
     edit (row) {
       this.rowModelType= "编辑";
       this.isShow = true;
-      this.formItem = row;
+      this.formItem = Object.assign(defaultChannelForm(), row);
     },
 
     // 表格搜索

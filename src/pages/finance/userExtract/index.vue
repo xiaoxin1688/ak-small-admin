@@ -45,13 +45,10 @@
                 clearable
                 class="input-add"
             >
-              <Option value="0">请选择</Option>
-              <Option  value="2">Bosspay</Option>
-              <Option  value="3">HLpay</Option>
-              <Option  value="4">Basepay</Option>
-              <Option  value="5">Mgmpay</Option>
-              <Option  value="6">Subpay</Option>
-
+              <Option value="">全部</Option>
+              <Option v-for="channel in payoutChannels" :key="channel.value" :value="channel.type">
+                {{ channel.label }}
+              </Option>
             </Select>
           </FormItem>
         <FormItem label="提现状态：">
@@ -131,74 +128,18 @@
           >
         </Tooltip>
         <Tooltip
-            v-show="SITE_NUM==='cheet'"
-            content="本页至少选中一项"
-            :disabled="!!checkIdList.length"
+          v-show="SITE_NUM === 'cheet'"
+          content="本页至少选中一项"
+          :disabled="!!checkIdList.length"
         >
-          <Button
-              v-auth="['admin-user-coupon']"
-              type="info"
-              class="mr20"
-              :disabled="!checkIdList.length "
-              @click="batchAdoptProxy('boss代付',2)"
-          >bosspay代付</Button
-          >
-        </Tooltip>
-        <Tooltip
-            v-show="SITE_NUM==='cheet'"
-            content="本页至少选中一项"
-            :disabled="!!checkIdList.length"
-        >
-          <Button
-              v-auth="['admin-user-coupon']"
-              type="warning"
-              class="mr20"
-              :disabled="!checkIdList.length "
-              @click="batchAdoptProxy('hlpay代付',3)"
-          >hlpay代付</Button
-          >
-        </Tooltip>
-        <Tooltip
-            v-show="SITE_NUM==='cheet'"
-            content="本页至少选中一项"
-            :disabled="!!checkIdList.length"
-        >
-          <Button
-              v-auth="['admin-user-coupon']"
-              type="primary"
-              class="mr20"
-              :disabled="!checkIdList.length"
-              @click="batchAdoptProxy('base代付',4)"
-          >basepay代付</Button
-          >
-        </Tooltip>
-        <Tooltip
-            v-show="SITE_NUM==='cheet'"
-            content="本页至少选中一项"
-            :disabled="!!checkIdList.length"
-        >
-          <Button
-              v-auth="['admin-user-coupon']"
-              type="primary"
-              class="mr20"
-              :disabled="!checkIdList.length"
-              @click="batchAdoptProxy('mgm代付',5)"
-          >mgmpay代付</Button
-          >
-        </Tooltip>
-        <Tooltip
-            v-show="SITE_NUM==='cheet'"
-            content="本页至少选中一项"
-            :disabled="!!checkIdList.length"
-        >
-          <Button
-              v-auth="['admin-user-coupon']"
-              type="primary"
-              class="mr20"
-              :disabled="!checkIdList.length"
-              @click="batchAdoptProxy('sub代付',6)"
-          >subpay代付</Button
-          >
+          <payout-channel-dropdown
+            v-auth="['admin-user-coupon']"
+            class="mr20"
+            label="批量代付"
+            :channels="payoutChannels"
+            :disabled="!checkIdList.length || !is_proxy_pay"
+            @select="batchAdoptProxy('批量代付', $event)"
+          />
         </Tooltip>
       </div>
 
@@ -238,24 +179,7 @@
           <span> {{ row._proxy_pay_date  }}</span>
         </template>
         <template slot-scope="{ row, index }" slot="channel_type">
-          <div class="type" v-if="row.channel_type ==1">
-             SolPay
-          </div>
-          <div class="type" v-if="row.channel_type ==2">
-            Bosspay
-          </div>
-          <div class="type" v-if="row.channel_type ==3">
-            HLpay
-          </div>
-          <div class="type" v-if="row.channel_type ==4">
-            Basepay
-          </div>
-          <div class="type" v-if="row.channel_type ==5">
-            Mgmpay
-          </div>
-          <div class="type" v-if="row.channel_type ==6">
-            Subpay
-          </div>
+          <div class="type">{{ payoutChannelLabel(row.channel_type) }}</div>
         </template>
         <template slot-scope="{ row }" slot="extract_type">
           <div class="type" v-if="row.extract_type === 'bank'">
@@ -331,58 +255,14 @@
                     @click="adopt(row, '审核通过', index)"
                 >通过</Button
                 >
-                <br>
-                <div v-if="SITE_NUM ==='cheet'">
-                  <Button
-                      style="margin-top: 8px"
-                      type="warning"
-                      icon="md-checkmark"
-                      size="small"
-                      class="item"
-                      v-if="row.transfer_status===0"
-                      @click="adoptProxy(row, '代付提交', 3)"
-                  >HL代付</Button
-                  >
-                  <Button
-                      style="margin-top: 8px"
-                      type="info"
-                      icon="md-checkmark"
-                      size="small"
-                      class="item"
-                      v-if="row.transfer_status===0"
-                      @click="adoptProxy(row, '代付提交', 2)"
-                  >Boss代付</Button
-                  >
-                  <Button
-                      style="margin-top: 8px"
-                      type="primary"
-                      icon="md-checkmark"
-                      size="small"
-                      class="item"
-                      v-if="row.transfer_status===0"
-                      @click="adoptProxy(row, '代付提交', 4)"
-                  >Base代付</Button
-                  >
-                  <Button
-                      style="margin-top: 8px"
-                      type="primary"
-                      icon="md-checkmark"
-                      size="small"
-                      class="item"
-                      v-if="row.transfer_status===0"
-                      @click="adoptProxy(row, '代付提交', 5)"
-                  >Mgm代付</Button
-                  >
-                  <Button
-                      style="margin-top: 8px"
-                      type="primary"
-                      icon="md-checkmark"
-                      size="small"
-                      class="item"
-                      v-if="row.transfer_status===0"
-                      @click="adoptProxy(row, '代付提交', 6)"
-                  >Sub代付</Button
-                  >
+                <div v-if="SITE_NUM === 'cheet' && row.transfer_status === 0" class="payout-action">
+                  <payout-channel-dropdown
+                    label="选择代付通道"
+                    size="small"
+                    :channels="payoutChannels"
+                    :disabled="!is_proxy_pay"
+                    @select="adoptProxy(row, '代付提交', $event)"
+                  />
                 </div>
 
               </div>
@@ -485,9 +365,10 @@ import timeOptions from "@/utils/timeOptions";
 import { userMemberShip } from '@api/user';
 import exportExcel from '@/utils/newToExcel';
 import Setting from '@/setting';
+import PayoutChannelDropdown from '@/components/payoutChannelDropdown';
 export default {
   name: "cashApply",
-  components: { cardsData, searchFrom, editFrom },
+  components: { cardsData, searchFrom, editFrom, PayoutChannelDropdown },
   filters: {
     formatDate(time) {
       if (time !== 0) {
@@ -499,6 +380,7 @@ export default {
   data() {
     return {
       SITE_NUM: Setting.SITE_NUM,
+      payoutChannels: [],
       member_vips:[],
       modal_loading: false,
       options: timeOptions,
@@ -762,6 +644,7 @@ export default {
       },
       formValidate: {
         uid:'',
+        channel_type: '',
         overdue_time:'',
         business_id:"",
         svip_id:"",
@@ -821,6 +704,12 @@ export default {
     // this.getList();
   },
   methods: {
+    payoutChannelLabel(type) {
+      const channel = this.payoutChannels.find(item => Number(item.type) === Number(type));
+      if (channel) return channel.label;
+      const fallback = {1: 'SolPay', 2: 'BossPay', 3: 'HLPay', 4: 'BasePay', 5: 'MgmPay', 6: 'SubPay', 7: 'UzPay', 8: 'WgePay'};
+      return fallback[Number(type)] || '-';
+    },
     onSelectionChange(e){
       this.checkIdList = e.filter(item => item.status !== 1).map(item => item.id);
 
@@ -904,11 +793,11 @@ export default {
       let that = this;
 
       if(!that.is_proxy_pay){
-       // return;
+        return;
       }
       that.is_proxy_pay = 0;
       let delfromData = {
-        title: tit,
+        title: `${tit} - ${this.payoutChannelLabel(num)}`,
         num: num,
         url: `finance/extract/batchAdoptProxy`,
         method: "post",
@@ -933,11 +822,11 @@ export default {
       let that = this;
 
       if(!that.is_proxy_pay){
-       // return;
+        return;
       }
       that.is_proxy_pay = 0;
       let delfromData = {
-        title: tit,
+        title: `${tit} - ${this.payoutChannelLabel(num)}`,
         num: num,
         url: `finance/extract/adopt_proxy/${row.id}`,
         method: "put",
@@ -989,12 +878,18 @@ export default {
     },
     reset(){
       this.formValidate = {
+        uid: '',
+        channel_type: '',
+        overdue_time: '',
+        business_id: '',
+        svip_id: '',
         status: "",
         extract_type: "",
         nireid: "",
         data: "",
         page: 1,
-        limit: 20
+        limit: 20,
+        type: 1
       };
       this.timeVal = [];
       // this.$refs.formValidate.resetFields()
@@ -1010,6 +905,7 @@ export default {
       cashListApi(this.formValidate)
         .then(async (res) => {
           let data = res.data;
+          this.payoutChannels = data.payout_channels || [];
           this.isEdit = res.data.edit;
           this.tabList = data.list.list;
           this.total = data.list.count;
@@ -1131,6 +1027,10 @@ margin:0 14px 0 -90px;
 
 .status >>> .statusVal {
   margin-bottom: 7px;
+}
+
+.payout-action {
+  margin-top: 8px;
 }
 
 /* .ivu-mt >>> .ivu-table-header */

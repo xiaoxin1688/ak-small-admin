@@ -62,3 +62,25 @@ export function deleteApi(id) {
         method: 'post',
     });
 }
+
+export function configProvidersApi() {
+    return request({
+        url: '/channel/config/providers',
+        method: 'get'
+    });
+}
+
+export function getConfigApi(provider) {
+    return request({
+        url: `/channel/config/${encodeURIComponent(provider)}`,
+        method: 'get'
+    });
+}
+
+export function saveConfigApi(provider, data) {
+    return request({
+        url: `/channel/config/${encodeURIComponent(provider)}`,
+        method: 'post',
+        data
+    });
+}

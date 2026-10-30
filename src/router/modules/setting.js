@@ -60,6 +60,15 @@ export default {
             },
             component: () => import('@/pages/setting/shop/pay')
         },
+        {
+            path: 'shop/payment-channels',
+            name: `${pre}payment_channels`,
+            meta: {
+                auth: true,
+                title: '第三方支付通道参数'
+            },
+            component: () => import('@/pages/setting/shop/paymentChannels')
+        },
 		{
 		    path: 'shop/eshop',
 		    name: `${pre}shop_eshop`,
